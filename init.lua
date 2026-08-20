@@ -659,6 +659,14 @@ require('lazy').setup({
         treesitter = true,
         which_key = true,
       },
+      custom_highlights = function(colors)
+        return {
+          -- Keep the file tree the same shade as the editor and the kitty background,
+          -- instead of catppuccin's darker `mantle` sidebar.
+          NeoTreeNormal = { bg = colors.base },
+          NeoTreeNormalNC = { bg = colors.base },
+        }
+      end,
     },
     config = function(_, opts)
       require('catppuccin').setup(opts)
