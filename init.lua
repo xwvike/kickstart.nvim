@@ -649,34 +649,21 @@ require('lazy').setup({
     -- change the command in the config to whatever the name of that colorscheme is.
     --
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-    'catppuccin/nvim',
-    name = 'catppuccin',
+    'projekt0n/github-nvim-theme',
+    name = 'github-theme',
     priority = 1000, -- Make sure to load this before all the other start plugins.
     opts = {
-      -- Match the kitty theme (Catppuccin-Mocha, see ~/.config/kitty/current-theme.conf)
-      flavour = 'mocha',
-      integrations = {
-        blink_cmp = true,
-        gitsigns = true,
-        mini = { enabled = true },
-        native_lsp = { enabled = true },
-        neotree = true,
-        telescope = { enabled = true },
-        treesitter = true,
-        which_key = true,
+      -- Match the kitty theme (GitHub Light, see ~/.config/kitty/current-theme.conf)
+      options = {
+        module_default = true, -- auto-enable sensible integrations for installed plugins
+        styles = {
+          comments = 'italic',
+        },
       },
-      custom_highlights = function(colors)
-        return {
-          -- Keep the file tree the same shade as the editor and the kitty background,
-          -- instead of catppuccin's darker `mantle` sidebar.
-          NeoTreeNormal = { bg = colors.base },
-          NeoTreeNormalNC = { bg = colors.base },
-        }
-      end,
     },
     config = function(_, opts)
-      require('catppuccin').setup(opts)
-      vim.cmd.colorscheme 'catppuccin-mocha'
+      require('github-theme').setup(opts)
+      vim.cmd.colorscheme 'github_light'
     end,
   },
 
