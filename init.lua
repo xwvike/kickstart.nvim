@@ -113,6 +113,25 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
+-- 文件被外部（AI）修改时自动重新加载
+vim.o.autoread = true
+local function checktime()
+  if vim.fn.mode() ~= 'c' and vim.fn.getcmdwintype() == '' then
+    pcall(vim.cmd.checktime)
+  end
+end
+vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter' }, {
+  group = vim.api.nvim_create_augroup('auto-reload', { clear = true }),
+  callback = checktime,
+})
+vim.uv.new_timer():start(1000, 1000, vim.schedule_wrap(checktime))
+vim.api.nvim_create_autocmd('FileChangedShellPost', {
+  group = 'auto-reload',
+  callback = function(event)
+    vim.notify('已重新加载: ' .. vim.fn.fnamemodify(event.file, ':~:.'), vim.log.levels.INFO)
+  end,
+})
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -219,6 +238,12 @@ require('lazy').setup({
     },
     config = function()
       require('telescope').setup {
+        defaults = {
+          file_ignore_patterns = { '%.git/' },
+        },
+        pickers = {
+          find_files = { hidden = true },
+        },
         extensions = {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
@@ -417,11 +442,13 @@ require('lazy').setup({
         },
       }
 
-      -- LSP servers and clients are able to communicate to each other what features they support.
-      --  By default, Neovim doesn't support everything that is in the LSP specification.
-      --  When you add blink.cmp, luasnip, etc. Neovim now has *more* capabilities.
-      --  So, we create new capabilities with blink.cmp, and then broadcast that to the servers.
-      local capabilities = require('blink.cmp').get_lsp_capabilities()
+      -- .vue 里的 TypeScript 由 ts_ls 加载 @vue/typescript-plugin 处理，vue_ls 只管模板和样式
+      local vue_plugin = {
+        name = '@vue/typescript-plugin',
+        location = vim.fn.stdpath 'data' .. '/mason/packages/vue-language-server/node_modules/@vue/language-server',
+        languages = { 'vue' },
+        configNamespace = 'typescript',
+      }
 
       -- Enable the following language servers
       --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
@@ -436,16 +463,15 @@ require('lazy').setup({
         -- clangd = {},
         gopls = {},
         pyright = {},
-        -- rust_analyzer = {},
-        -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
-        --
-        -- Some languages (like typescript) have entire language plugins that can be useful:
-        --    https://github.com/pmizio/typescript-tools.nvim
-        --
-        -- But for many setups, the LSP (`ts_ls`) will work just fine
-        ts_ls = {},
+        rust_analyzer = {},
+        ts_ls = {
+          init_options = { plugins = { vue_plugin } },
+          filetypes = { 'typescript', 'javascript', 'javascriptreact', 'typescriptreact', 'vue' },
+        },
         vue_ls = {},
-        --
+        eslint = {},
+        cssls = {},
+        jsonls = {},
 
         lua_ls = {
           -- cmd = { ... },
@@ -485,20 +511,12 @@ require('lazy').setup({
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
-      require('mason-lspconfig').setup {
-        ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-        automatic_installation = false,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
-        },
-      }
+      -- mason-lspconfig v2 已移除 handlers，改用 vim.lsp.config 覆盖默认配置，由 automatic_enable 启用
+      -- blink.cmp 的 capabilities 由其插件通过 vim.lsp.config('*') 自动注入
+      for name, config in pairs(servers) do
+        vim.lsp.config(name, config)
+      end
+      require('mason-lspconfig').setup()
     end,
   },
 
@@ -714,7 +732,11 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = {
+        'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc',
+        'javascript', 'typescript', 'tsx', 'vue', 'css', 'scss', 'json', 'jsonc', 'yaml', 'toml',
+        'go', 'gomod', 'gosum', 'rust', 'python', 'sql', 'dockerfile', 'regex', 'gitcommit', 'git_rebase',
+      },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
